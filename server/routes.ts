@@ -2,13 +2,14 @@ import { ObjectId } from "mongodb";
 
 import { Router, getExpressRouter } from "./framework/router";
 
-import { Friend, Post, User, WebSession } from "./app";
+import { Counter, Feed, /*Friend,*/ Post, Timer, User, WebSession } from "./app";
 import { PostDoc, PostOptions } from "./concepts/post";
 import { UserDoc } from "./concepts/user";
 import { WebSessionDoc } from "./concepts/websession";
 import Responses from "./responses";
 
 class Routes {
+  // A lot used for testing - will be deleted in final version
   @Router.get("/session")
   async getSessionUser(session: WebSessionDoc) {
     const user = WebSession.getUser(session);
@@ -70,9 +71,9 @@ class Routes {
   }
 
   @Router.post("/posts")
-  async createPost(session: WebSessionDoc, content: string, options?: PostOptions) {
+  async createPost(session: WebSessionDoc, content: string, message: string, options?: PostOptions) {
     const user = WebSession.getUser(session);
-    const created = await Post.create(user, content, options);
+    const created = await Post.create(user, content, message, options);
     return { msg: created.msg, post: await Responses.post(created.post) };
   }
 
@@ -90,51 +91,90 @@ class Routes {
     return Post.delete(_id);
   }
 
-  @Router.get("/friends")
-  async getFriends(session: WebSessionDoc) {
-    const user = WebSession.getUser(session);
-    return await User.idsToUsernames(await Friend.getFriends(user));
+  @Router.post("/counters")
+  async createCounter() {
+    const created = await Counter.create();
+    return { msg: created.msg, counter: created.counter };
   }
 
-  @Router.delete("/friends/:friend")
-  async removeFriend(session: WebSessionDoc, friend: string) {
-    const user = WebSession.getUser(session);
-    const friendId = (await User.getUserByUsername(friend))._id;
-    return await Friend.removeFriend(user, friendId);
+  @Router.get("/counters/:_id")
+  async getCount(_id: ObjectId) {
+    const count = await Counter.getCountById(_id);
+    return { msg: count.msg, counter: count.count };
   }
 
-  @Router.get("/friend/requests")
-  async getRequests(session: WebSessionDoc) {
-    const user = WebSession.getUser(session);
-    return await Responses.friendRequests(await Friend.getRequests(user));
+  @Router.delete("/counters/:_id")
+  async deleteCounter(_id: ObjectId) {
+    const count = await Counter.delete(_id);
+    return { msg: count.msg };
   }
 
-  @Router.post("/friend/requests/:to")
-  async sendFriendRequest(session: WebSessionDoc, to: string) {
-    const user = WebSession.getUser(session);
-    const toId = (await User.getUserByUsername(to))._id;
-    return await Friend.sendRequest(user, toId);
+  @Router.get("/counters")
+  async getCounters() {
+    return await Counter.getCounters();
   }
 
-  @Router.delete("/friend/requests/:to")
-  async removeFriendRequest(session: WebSessionDoc, to: string) {
-    const user = WebSession.getUser(session);
-    const toId = (await User.getUserByUsername(to))._id;
-    return await Friend.removeRequest(user, toId);
+  @Router.patch("/counters/:_id")
+  async incCounters(_id: ObjectId, amount: number) {
+    return await Counter.increment(_id, amount ? amount : 1);
   }
 
-  @Router.put("/friend/accept/:from")
-  async acceptFriendRequest(session: WebSessionDoc, from: string) {
-    const user = WebSession.getUser(session);
-    const fromId = (await User.getUserByUsername(from))._id;
-    return await Friend.acceptRequest(fromId, user);
+  @Router.post("/timers")
+  async createTimer() {
+    const created = await Timer.create();
+    return { msg: created.msg, timer: created.timer };
   }
 
-  @Router.put("/friend/reject/:from")
-  async rejectFriendRequest(session: WebSessionDoc, from: string) {
-    const user = WebSession.getUser(session);
-    const fromId = (await User.getUserByUsername(from))._id;
-    return await Friend.rejectRequest(fromId, user);
+  @Router.get("/timers/:_id")
+  async getTime(_id: ObjectId) {
+    const time_ = await Timer.getTimeById(_id);
+    return { msg: time_.msg, time: time_.time };
+  }
+
+  @Router.delete("/timers/:_id")
+  async deleteTimer(_id: ObjectId) {
+    return await Timer.delete(_id);
+  }
+
+  @Router.get("/timers")
+  async getTimers() {
+    return await Timer.getTimers();
+  }
+
+  @Router.post("/feed/owner:")
+  async createFeed(owner: ObjectId) {
+    const created = await Feed.create(owner);
+    return created;
+  }
+
+  @Router.get("/feed/owner:")
+  async getNext(owner: ObjectId) {
+    const nextContent = Feed.getNext(owner);
+    return nextContent;
+  }
+
+  @Router.patch("/feed/owner:")
+  async expandFeed(owner: ObjectId, numItems: number) {
+    const items: Array<ObjectId> = [];
+    const posts = await Post.getPosts({});
+    console.log(numItems);
+    for (let i = 0; i < Number(numItems); i++) {
+      items.push(posts[i]._id);
+    }
+    console.log(items);
+    const expFeed = Feed.addToFeed(owner, items);
+    return expFeed;
+  }
+
+  @Router.delete("/feed/owner:")
+  async deleteFeed(owner: ObjectId) {
+    return await Feed.delete(owner);
+  }
+
+  @Router.get("/feed")
+  async getAllFeeds() {
+    const nextContent = Feed.getFeeds();
+    return nextContent;
   }
 }
 
