@@ -3,29 +3,22 @@ import { Filter, ObjectId } from "mongodb";
 import DocCollection, { BaseDoc } from "../framework/doc";
 import { NotAllowedError, NotFoundError } from "./errors";
 
-export interface PostOptions {
-  backgroundColor?: string;
-}
-
 export interface PostDoc extends BaseDoc {
   author: ObjectId;
   content: string; // Link to video/image for now ig
   message: string;
-  options?: PostOptions;
 }
 
 export default class PostConcept {
   public readonly posts = new DocCollection<PostDoc>("posts");
 
-  async create(author: ObjectId, content: string, message: string, options?: PostOptions) {
-    const _id = await this.posts.createOne({ author, content, message, options });
+  async create(author: ObjectId, content: string, message: string) {
+    const _id = await this.posts.createOne({ author, content, message });
     return { msg: "Post successfully created!", post: await this.posts.readOne({ _id }) };
   }
 
   async getPosts(query: Filter<PostDoc>) {
-    const posts = await this.posts.readMany(query, {
-      sort: { dateUpdated: -1 },
-    });
+    const posts = await this.posts.readMany(query);
     return posts;
   }
 

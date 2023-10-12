@@ -1,7 +1,13 @@
 import { ObjectId } from "mongodb";
 
 import DocCollection, { BaseDoc } from "../framework/doc";
-import { NotFoundError } from "./errors";
+import { NotAllowedError, NotFoundError } from "./errors";
+
+export class FeedEmptyError extends NotAllowedError {
+  constructor() {
+    super("This feed is empty");
+  }
+}
 
 export interface FeedDoc extends BaseDoc {
   owner: ObjectId;
@@ -10,11 +16,25 @@ export interface FeedDoc extends BaseDoc {
 }
 
 export default class FeedConcept {
-  public readonly feeds = new DocCollection<FeedDoc>("content");
+  public readonly feeds = new DocCollection<FeedDoc>("feeds");
 
   async create(owner: ObjectId) {
+    const feedExists = await this.feeds.readOne({ owner });
+
+    if (feedExists !== null) {
+      throw new NotAllowedError("Feed for this Owner already exists!");
+    }
+
     const _id = await this.feeds.createOne({ owner, seen: new Array<ObjectId>(), available: new Array<ObjectId>() });
     return { msg: "Feed successfully created!", feed: await this.feeds.readOne({ _id }) };
+  }
+
+  async getSeenContent(owner: ObjectId) {
+    const feed = await this.feeds.readOne({ owner });
+    if (feed === null) {
+      throw new NotFoundError(`No feed with owner ${owner}`);
+    }
+    return { msg: "Feed found!", seen: feed.seen };
   }
 
   async getNext(owner: ObjectId) {
@@ -39,12 +59,14 @@ export default class FeedConcept {
 
   async addToFeed(owner: ObjectId, ids: Array<ObjectId>) {
     const feed = await this.feeds.readOne({ owner });
-    if (!feed) {
+    if (feed === null) {
       throw new NotFoundError(`User ${owner} does not have a feed!`);
     }
     let count = 0;
     for (const OID of ids) {
-      if (!feed.seen.includes(OID) && !feed.available.includes(OID)) {
+      const inSeen = feed.seen.reduce((seen, nextVal) => seen || OID.equals(nextVal), false);
+      const inAvailable = feed.available.reduce((seen, nextVal) => seen || OID.equals(nextVal), false);
+      if (!inSeen && !inAvailable) {
         count += 1;
         feed.available.push(OID);
       }
@@ -60,5 +82,19 @@ export default class FeedConcept {
 
   async getFeeds() {
     return await this.feeds.readMany({});
+  }
+
+  async isNonempty(owner: ObjectId) {
+    const feed = await this.feeds.readOne({ owner });
+
+    if (feed === null) {
+      throw new NotFoundError(`User ${owner} does not have a feed!`);
+    }
+
+    if (feed.available.length === 0) {
+      throw new FeedEmptyError();
+    }
+
+    return { msg: `Feed has ${feed.available.length} items left!`, count: feed.available.length };
   }
 }

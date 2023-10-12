@@ -5,6 +5,7 @@ import WebSessionConcept from "./concepts/websession";
 import CounterConcept from "./concepts/counter";
 import TimerConcept from "./concepts/timer";
 import FeedConcept from "./concepts/feed";
+import DisableConcept from "./concepts/disable";
 
 // App Definition using concepts
 export const WebSession = new WebSessionConcept();
@@ -14,3 +15,4 @@ export const Friend = new FriendConcept();
 export const Counter = new CounterConcept();
 export const Timer = new TimerConcept();
 export const Feed = new FeedConcept();
+export const Disable = new DisableConcept();
